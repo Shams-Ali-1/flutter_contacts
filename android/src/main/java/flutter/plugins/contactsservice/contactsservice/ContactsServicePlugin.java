@@ -270,39 +270,51 @@ public class ContactsServicePlugin implements MethodCallHandler, FlutterPlugin, 
     }
 
     @Override
-    public boolean onActivityResult(int requestCode, int resultCode, Intent intent) {
-      if(requestCode == REQUEST_OPEN_EXISTING_CONTACT || requestCode == REQUEST_OPEN_CONTACT_FORM) {
+public boolean onActivityResult(int requestCode, int resultCode, Intent intent) {
+    if (requestCode == REQUEST_OPEN_EXISTING_CONTACT || requestCode == REQUEST_OPEN_CONTACT_FORM) {
         try {
-          Uri ur = intent.getData();
-          finishWithResult(getContactByIdentifier(ur.getLastPathSegment()));
+            Uri ur = intent.getData();
+            finishWithResult(getContactByIdentifier(ur.getLastPathSegment()));
         } catch (NullPointerException e) {
-          finishWithResult(FORM_OPERATION_CANCELED);
+            finishWithResult(FORM_OPERATION_CANCELED);
         }
         return true;
-      }
-
-      if (requestCode == REQUEST_OPEN_CONTACT_PICKER) {
-        if (resultCode == RESULT_CANCELED) {
-          finishWithResult(FORM_OPERATION_CANCELED);
-          return true;
-        }
-        Uri contactUri = intent.getData();
-          if (intent != null){
-        Cursor cursor = contentResolver.query(contactUri, null, null, null, null);
-        if (cursor.moveToFirst()) {
-          String id = contactUri.getLastPathSegment();
-          getContacts("openDeviceContactPicker", id, false, false, false, localizedLabels, this.result);
-        } else {
-          Log.e(LOG_TAG, "onActivityResult - cursor.moveToFirst() returns false");
-          finishWithResult(FORM_OPERATION_CANCELED);
-        }}else{return true;}
-        cursor.close();
-        return true;
-      }
-
-      finishWithResult(FORM_COULD_NOT_BE_OPEN);
-      return false;
     }
+
+    if (requestCode == REQUEST_OPEN_CONTACT_PICKER) {
+        if (resultCode == RESULT_CANCELED || intent == null) {
+            finishWithResult(FORM_OPERATION_CANCELED);
+            return true;
+        }
+
+        Uri contactUri = intent.getData();
+        Cursor cursor = null;
+
+        try {
+            cursor = contentResolver.query(contactUri, null, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                String id = contactUri.getLastPathSegment();
+                getContacts("openDeviceContactPicker", id, false, false, false, localizedLabels, this.result);
+            } else {
+                Log.e(LOG_TAG, "onActivityResult - cursor is null or empty");
+                finishWithResult(FORM_OPERATION_CANCELED);
+            }
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Error querying contactUri: " + e.getMessage());
+            finishWithResult(FORM_OPERATION_CANCELED);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+
+        return true;
+    }
+
+    finishWithResult(FORM_COULD_NOT_BE_OPEN);
+    return false;
+}
+
 
     void openExistingContact(Contact contact) {
       String identifier = contact.identifier;
